@@ -21,6 +21,7 @@ lib.transferEnsured = function(from, to, amount, timeout, pull, fromSlot, toSlot
             end
         end
     end
+    
     function awaitTransfer()
         while transferred < amount do
             if pull then
