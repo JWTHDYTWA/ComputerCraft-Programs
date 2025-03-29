@@ -1,28 +1,32 @@
------------------
--- Peripherals --
------------------
+-- Barrel can be replaced with any inventory block
+local router = peripheral.find('modularrouters:modular_router')
 
-if not arg[3] then
-    print("Syntax: ink_extract <storage_side> <cauldron_router_side> <water_router_side>")
-    print("Both clickers should be in pulse mode.")
-    exit()
+local storage
+do
+    local not_found = true
+    for i, p_name in ipairs(peripheral.getNames()) do
+        local check_1, check_2 = false, true
+        storage = peripheral.wrap(p_name)
+        for j, p_type in ipairs({peripheral.getType(storage)}) do
+            if p_type == 'inventory' then check_1 = true end
+            if p_type == 'modularrouters:modular_router' then check_2 = false end
+        end
+        if check_1 and check_2 then
+            not_found = false
+            break
+        end
+    end
+    if not_found then
+        error('There is no compatible storage inventory!')
+    end
 end
-
-local storage_name = arg[1]
-local cauldron_clicker_name = arg[2]
-local water_clicker_name = arg[3]
-
-local storage = peripheral.wrap(arg[1])
-local cauldron_clicker = peripheral.wrap(arg[2])
-local water_clicker = peripheral.wrap(arg[3])
-
-if not (storage and cauldron_clicker and water_clicker) then error("One or more peripherals not found") end
+local storage_name = peripheral.getName(storage)
 
 ------------
 -- Config --
 ------------
 
-local term_w, term_h = term.getSize()
+local link = 'right' -- The side at which the redstone link to the Router is
 
 local toTrack = {
     { 'irons_spellbooks:common_ink', 'Common' },
@@ -60,7 +64,6 @@ local bottleGood = 512
 
 local operation = 'Idle'
 local mode = 'Auto'
-local process = 'None'
 local buttons = {}
 
 -------------------------
@@ -75,11 +78,11 @@ end
 --     return Reader.getBlockData().storageWrapper.contents.inventory.Items
 -- end
 
-local function pulse(side, len)
-    redstone.setOutput(side, true)
+local function pulse(len)
+    redstone.setOutput(link, true)
     sleep(len)
-    redstone.setOutput(side, false)
-    sleep(0.1)
+    redstone.setOutput(link, false)
+    sleep(0.2)
 end
 
 local function pulses(len, times)
@@ -139,33 +142,24 @@ end
 -- pullItems(fromName, fromSlot [, limit [, toSlot]])
 -- pushItems(toName, fromSlot [, limit [, toSlot]])
 
-local function pushIngredient(slot)
-    cauldron_clicker.pullItems(storage_name, slot, 1)
-    pulse(cauldron_clicker_name, 0.1)
+local function pullSpell()
+    local spell = findItem('irons_spellbooks:scroll')
+    if not spell then return false end
+    router.pullItems(storage_name, spell)
+    pulse(0.2)
     return true
 end
 
-local function pushBottle(slot)
-    repeat until cauldron_clicker.pullItems(storage_name, slot, 1) == 1
-    pulse(cauldron_clicker_name, 0.1)
-    repeat until cauldron_clicker.pushItems(storage_name, 1) == 1
-end
-
-local function pushWater(bottle_slot)
-    repeat until water_clicker.pullItems(storage_name, bottle_slot, 1) == 1
-    pulse(water_clicker_name, 0.1)
-    repeat until cauldron_clicker.pullItems(water_clicker_name, 1) == 1
-    pulse(cauldron_clicker_name, 0.1)
-    repeat until cauldron_clicker.pushItems(storage_name, 1) == 1
-    return true
-end
-
-local function pullInk()
+local function pushInk()
     local bottle = findItem('minecraft:glass_bottle')
     if not bottle then return false end
-    cauldron_clicker.pullItems(storage_name, bottle, 1)
-    pulse(cauldron_clicker_name, 0.1)
-    repeat until cauldron_clicker.pushItems(storage_name, 1) == 1
+    router.pullItems(storage_name, bottle, 1)
+    pulse(0.2)
+    local received = router.getItemDetail(1).name
+    if received == 'minecraft:potion' then
+        pulse(0.2)
+    end
+    repeat until router.pushItems(storage_name, 1) == 1
     return true
 end
 
@@ -174,22 +168,11 @@ end
 --------------------
 
 local function recycleSpell()
-    local spell = findItem('irons_spellbooks:scroll')
-    local water = findItem('minecraft:potion')
-    local bottle = findItem('minecraft:glass_bottle')
-    if not (spell and (water or bottle)) then return false end
-
+    if not pullSpell() then return false end
     operation = 'Recycle'
-    if water then
-        pushBottle(water)
-    else
-        pushWater(bottle)
-    end
-    pushIngredient(spell)
     sleep(6)
-    pushBottle(findItem('minecraft:glass_bottle'))
+    repeat until pushInk()
     operation = 'Idle'
-
     return true
 end
 
@@ -200,11 +183,20 @@ local function upgradeInk()
         if ink > 3 and reagent > 0 then
             operation = 'Upgrade'
             for i = 1, 4 do
-                pushBottle(findItem(value[1]))
+                if router.pullItems(storage_name, findItem(value[1]), 1) == 0 then
+                    error('The ink is gone, figure it out')
+                end
+                pulse(0.2)
+                if router.pushItems(storage_name, 1) == 0 then
+                    error('The Barrel is full')
+                end
             end
-            pushIngredient(findItem(value[2]))
+            router.pullItems(storage_name, findItem(value[2]), 1)
+            pulse(0.2)
             sleep(6)
-            pushBottle(findItem('minecraft:glass_bottle'))
+            repeat until router.pullItems(storage_name, findItem('minecraft:glass_bottle'), 1) == 1
+            pulse(0.2)
+            repeat until router.pushItems(storage_name, 1) == 1
             operation = 'Idle'
             return true
         end
@@ -250,9 +242,6 @@ local function renderScreen()
     write(Counts.Bottles, 12, 10, bottleStatus)
     write('Scrolls:', 2, 11, colors.yellow)
     write(Counts.Scrolls, 12, 11)
-    write('Do not put potions', 2, term_h-3, colors.red)
-    write('except Water Bottles', 2, term_h-2)
-    write('in the storage!', 2, term_h-1)
 end
 
 -------------

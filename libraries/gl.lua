@@ -25,7 +25,7 @@ lib.restoreState = function()
     return state
 end
 
--- Fast version of write, does not return states to those before execution
+-- Fast version of write, does not return state to the one before execution
 -- Expected to be used sequentially with other "fast" functions between manual saveState and restoreState
 lib.fastWrite = function (x, y, text, col, bcol)
     term.setCursorPos(x,y)
@@ -110,6 +110,22 @@ lib.write = function (x, y, text, color, bgcolor)
     term.setCursorPos(oldX,oldY)
     term.setTextColor(oldTC)
     term.setBackgroundColor(oldBC)
+end
+
+lib.bar = function (left, top, right, bottom, color_m, color_a, percentage)
+    local oldBC, oldX, oldY = term.getBackgroundColor(), term.getCursorPos()
+    local width = right - left
+    local missing = 1 - percentage
+    paintutils.drawFilledBox(
+        2, 6,
+        2 + percentage * width, 7,
+        color_m or colors.orange)
+    paintutils.drawFilledBox(
+        (right - missing * width), 6,
+        right, 7,
+        color_a or colors.gray)
+    term.setBackgroundColor(oldBC)
+    term.setCursorPos(oldX, oldY)
 end
 
 return lib

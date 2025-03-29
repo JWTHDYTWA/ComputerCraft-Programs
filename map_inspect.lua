@@ -10,8 +10,8 @@ for index, value in ipairs(items) do
     if value.tag and value.tag.map then
         print('\n Map: '.. value.tag.map)
         local deco = value.tag.Decorations
-        for index, value in ipairs(deco) do
-            print('X: ' .. value.x .. ' Y: ' .. value.z)
+        for i, v in ipairs(deco) do
+            print('X: ' .. v.x .. ' Y: ' .. v.z)
         end
     end
 end

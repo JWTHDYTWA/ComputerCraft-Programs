@@ -1,60 +1,40 @@
-local utils = require('utils')
-local args = utils.argParse(...)
-local machine
+local valid_sides = {
+    'top', 'bottom', 'left', 'right', 'back', 'front'
+}
 
--- Finding compatible compressor if not specified
-if args.s then
-    machine = peripheral.wrap(args.s)
-    if not (machine and machine.getPressure) then
-        error('There is no compatible peripheral on the selected side!')
-    end
-else
-    local directions = {
-        'top',
-        'bottom',
-        'back',
-        'front',
-        'left',
-        'right'
-    }
-    for index, value in ipairs(directions) do
-        machine = peripheral.wrap(value)
-        if machine and machine.getPressure then
-            args.s = value
-            break
-        end
-    end
-    if not machine then
-        error('No compatible machines found!')
+local compressor, side
+for i, value in ipairs(valid_sides) do
+    local p = peripheral.wrap(value)
+    if p and peripheral.getType(p):match('pneumaticcraft:[%w_]+compressor') then
+        compressor = p
+        side = value
+        break
     end
 end
+if not compressor then
+    error('No compatible machines found!')
+end
 
-args.p = args.p or machine.getDangerPressure() - 1
+local max_pressure = tonumber(arg[1]) or compressor.getDangerPressure() - 1
 
 -- Display
 term.clear()
 term.setCursorPos(2,2)
 term.setTextColor(colors.lime)
-term.write('Performing pressure control')
-term.setCursorPos(2,3)
-term.write('with following parameters:')
+term.write('Pressure control system')
 
-term.setCursorPos(2,5)
-term.setTextColor(colors.orange)
-print(' Side: ' .. args.s)
-
-term.setCursorPos(2,6)
+term.setCursorPos(2,4)
 term.setTextColor(colors.lightBlue)
-print(' Pressure setting: ' .. args.p)
+print('Max pressure: ' .. max_pressure)
 term.setTextColor(colors.white)
 
 -- Work loop
 while true do
-    local pressure = machine.getPressure()
-    if pressure < args.p then
-        redstone.setOutput(args.s, true)
+    local pressure = compressor.getPressure()
+    if pressure < max_pressure then
+        redstone.setOutput(side, true)
     else
-        redstone.setOutput(args.s, false)
+        redstone.setOutput(side, false)
     end
-    sleep(0)
+    sleep(0.05)
 end
