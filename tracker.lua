@@ -1,7 +1,7 @@
 
 local detector = peripheral.find('playerDetector')
 local MAX_X, MAX_Y = term.getSize()
-arg[1] = tonumber(arg[1]) or 5
+local scan_delay = tonumber(arg[1]) or 5
 
 -- Configuration
 local title = 'Multidimensional Tracker by JWTHDYTWA'
@@ -71,7 +71,7 @@ local function thread_tracker()
         error_buffer = error_registry
         players_count = #list
         sem_render = true
-        sleep(args.delay)
+        sleep(scan_delay)
     end
 end
 
